@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Divide & Conquer — Min/Max Finder</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0b0d12;
+  --surface: #13161f;
+  --surface2: #1b1f2d;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #7c6ff7;
+  --accent2: #4ecdc4;
+  --warm: #f59e4a;
+  --danger: #f26e6e;
+  --success: #5bbf8e;
+  --text: #e8eaf0;
+  --muted: #7a7f96;
+  --faint: #3a3f55;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --display: 'Syne', sans-serif;
+  --radius: 12px;
+  --radius-lg: 18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.65;min-height:100vh;overflow-x:hidden}
+
+/* ─── NOISE TEXTURE ─── */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.5}
+
+/* ─── HERO GLOW ─── */
+.hero-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:700px;height:400px;background:radial-gradient(ellipse at center,rgba(124,111,247,.18) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+/* ─── LAYOUT ─── */
+.shell{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:0 24px 80px}
+
+/* ─── NAV ─── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:20px 0 24px;border-bottom:0.5px solid var(--border)}
+.nav-logo{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:-.3px;color:var(--text)}
+.nav-logo span{color:var(--accent)}
+.nav-pills{display:flex;gap:4px}
+.nav-pill{padding:6px 14px;border-radius:30px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .2s;font-family:var(--sans);letter-spacing:.02em}
+.nav-pill.active,.nav-pill:hover{background:rgba(124,111,247,.15);color:var(--accent)}
+
+/* ─── HERO ─── */
+.hero{padding:60px 0 48px;text-align:center}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(124,111,247,.1);border:0.5px solid rgba(124,111,247,.3);border-radius:30px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:24px}
+.hero-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+h1{font-family:var(--display);font-size:clamp(36px,6vw,60px);font-weight:800;line-height:1.08;letter-spacing:-1.5px;margin-bottom:18px}
+h1 em{font-style:normal;color:var(--accent)}
+.hero-sub{color:var(--muted);font-size:16px;max-width:520px;margin:0 auto 36px;line-height:1.7}
+.badge-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:0.5px solid}
+.badge-purple{background:rgba(124,111,247,.08);border-color:rgba(124,111,247,.25);color:#a99ef5}
+.badge-teal{background:rgba(78,205,196,.08);border-color:rgba(78,205,196,.25);color:#7eded8}
+.badge-warm{background:rgba(245,158,74,.08);border-color:rgba(245,158,74,.25);color:#f7bb7e}
+
+/* ─── SECTION SHELLS ─── */
+.section{padding:48px 0 0;display:none}
+.section.active{display:block}
+
+/* ─── SECTION TITLE ─── */
+.sec-header{display:flex;align-items:center;gap:14px;margin-bottom:28px}
+.sec-num{width:36px;height:36px;border-radius:10px;background:rgba(124,111,247,.15);border:0.5px solid rgba(124,111,247,.3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);flex-shrink:0}
+.sec-title{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.4px}
+.sec-desc{color:var(--muted);font-size:14px;margin-top:2px;font-weight:400}
+
+/* ─── CARDS ─── */
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:16px}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:640px){.card-grid,.card-grid3{grid-template-columns:1fr}}
+
+/* ─── STAT TILES ─── */
+.stat-tile{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.stat-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.stat-val{font-family:var(--display);font-size:32px;font-weight:800;letter-spacing:-1px}
+.stat-val.green{color:var(--success)}
+.stat-val.orange{color:var(--warm)}
+.stat-val.purple{color:var(--accent)}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ─── ARRAY VISUALIZER ─── */
+.array-wrap{display:flex;gap:8px;flex-wrap:wrap;min-height:64px;align-items:center;padding:20px;background:var(--surface2);border-radius:var(--radius);border:0.5px solid var(--border);margin-bottom:16px}
+.cell{width:56px;height:56px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-size:18px;font-weight:700;border:1.5px solid var(--faint);background:var(--surface);color:var(--text);transition:all .3s ease;cursor:default;position:relative;flex-shrink:0}
+.cell .idx{position:absolute;bottom:3px;font-size:9px;font-family:var(--mono);color:var(--muted);font-weight:400}
+.cell.active{border-color:var(--accent);background:rgba(124,111,247,.15);color:#c4bbff;transform:translateY(-3px)}
+.cell.pair{border-color:var(--warm);background:rgba(245,158,74,.12);color:#f7c57e;transform:translateY(-3px)}
+.cell.min-cell{border-color:var(--success);background:rgba(91,191,142,.15);color:#8fe8b8;transform:translateY(-4px)}
+.cell.max-cell{border-color:var(--danger);background:rgba(242,110,110,.15);color:#f8a0a0;transform:translateY(-4px)}
+
+/* ─── CONTROLS ─── */
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.btn{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:var(--sans);transition:all .2s;letter-spacing:.01em}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:#9187f5}
+.btn-accent:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:transparent;color:var(--muted);border:0.5px solid var(--border2)}
+.btn-outline:hover{background:var(--surface2);color:var(--text)}
+.speed-ctl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.speed-ctl input{width:80px;accent-color:var(--accent)}
+.speed-ctl span{font-family:var(--mono);font-size:11px;color:var(--accent);min-width:50px}
+
+/* ─── INPUT ─── */
+.input-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.arr-input{flex:1;min-width:220px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s}
+.arr-input:focus{border-color:var(--accent)}
+.arr-input::placeholder{color:var(--faint)}
+.input-tip{font-size:12px;color:var(--muted);margin-bottom:14px;font-family:var(--mono)}
+
+/* ─── LOG ─── */
+.log-box{background:#090b10;border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:12px;line-height:2;max-height:200px;overflow-y:auto;margin-top:4px}
+.log-box::-webkit-scrollbar{width:4px}
+.log-box::-webkit-scrollbar-track{background:transparent}
+.log-box::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+.log-empty{color:var(--faint);font-style:italic}
+.log-line{padding:1px 0;border-bottom:0.5px solid rgba(255,255,255,.03)}
+.log-line.info{color:#8ba8f5}
+.log-line.warn{color:#f7bb7e}
+.log-line.success{color:#7fe8b0}
+.log-line.error{color:#f8a0a0}
+
+/* ─── THEORY SECTION ─── */
+.theory-block{margin-bottom:20px}
+.theory-block h3{font-family:var(--display);font-size:17px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.theory-block p{color:var(--muted);font-size:14px;line-height:1.8;margin-bottom:8px}
+.theory-block p strong{color:var(--text);font-weight:500}
+.formula-box{background:#090b10;border:0.5px solid var(--border);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;font-family:var(--mono);font-size:13px;line-height:2.2;color:var(--text);margin:10px 0;overflow-x:auto}
+.formula-box .comment{color:var(--muted)}
+.formula-box .highlight{color:var(--accent);font-weight:500}
+.formula-box .result{color:var(--success);font-weight:500}
+.pseudo-box{background:#090b10;border:0.5px solid var(--border);border-radius:var(--radius);padding:20px 22px;font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--text);counter-reset:line}
+.pseudo-box .kw{color:#bf9aff;font-weight:500}
+.pseudo-box .fn{color:#79d4f0}
+.pseudo-box .cm{color:#4a5270;font-style:italic}
+.pseudo-box .val{color:var(--warm)}
+.pseudo-box .ret{color:var(--success)}
+.pl1{padding-left:18px}
+.pl2{padding-left:36px}
+.pl3{padding-left:54px}
+
+/* ─── COMPARISON BARS ─── */
+.cmp-card{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:12px}
+.cmp-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cmp-name{font-size:13px;font-weight:500;font-family:var(--display)}
+.cmp-num{font-family:var(--mono);font-size:13px;font-weight:500}
+.bar-track{height:8px;background:var(--faint);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.bar-red{background:var(--danger)}
+.bar-green{background:var(--success)}
+.bar-purple{background:var(--accent)}
+.saving-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(91,191,142,.1);border:0.5px solid rgba(91,191,142,.3);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--success);font-weight:500;font-family:var(--mono)}
+
+/* ─── CHART ─── */
+.chart-wrap{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:16px}
+.chart-label{font-size:12px;color:var(--muted);margin-bottom:12px;font-family:var(--display);font-weight:500}
+canvas{width:100%;border-radius:4px}
+
+/* ─── EXAMPLE STEP GRID ─── */
+.step-grid{display:grid;gap:10px}
+.step-row{display:grid;grid-template-columns:32px 1fr;gap:14px;align-items:start}
+.step-dot{width:32px;height:32px;border-radius:50%;background:rgba(124,111,247,.15);border:1px solid rgba(124,111,247,.4);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--accent);flex-shrink:0;margin-top:3px}
+.step-content{background:var(--surface2);border-radius:var(--radius);padding:14px 16px}
+.step-title{font-weight:500;font-size:14px;margin-bottom:4px;color:var(--text)}
+.step-body{font-size:13px;color:var(--muted);line-height:1.7}
+.step-body code{background:rgba(124,111,247,.1);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;color:#c4bbff}
+
+/* ─── INTERACTIVE N SLIDER ─── */
+.slider-row{display:flex;align-items:center;gap:14px;margin:14px 0}
+.slider-row label{font-size:13px;color:var(--muted);white-space:nowrap;min-width:40px}
+.slider-row input{flex:1;accent-color:var(--accent)}
+.slider-row .val{font-family:var(--mono);font-size:13px;color:var(--accent);min-width:50px;text-align:right}
+
+/* ─── TABLE ─── */
+.table-wrap{overflow-x:auto;margin:12px 0;border-radius:var(--radius);border:0.5px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--surface2);color:var(--muted);font-weight:500;padding:10px 14px;text-align:left;font-family:var(--display);font-size:12px;letter-spacing:.04em;text-transform:uppercase;border-bottom:0.5px solid var(--border)}
+td{padding:10px 14px;border-bottom:0.5px solid var(--border);color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+td.green{color:var(--success);font-family:var(--mono)}
+td.orange{color:var(--warm);font-family:var(--mono)}
+
+/* ─── DIVIDER ─── */
+.divider{height:0.5px;background:var(--border);margin:28px 0}
+
+/* ─── CONCLUSION ─── */
+.conclusion-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.concl-card{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.concl-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+.concl-card h4{font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:5px}
+.concl-card p{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ─── PYTHON TAB ─── */
+.python-code-wrap{background:#090b10;border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--surface2);border-bottom:0.5px solid var(--border)}
+.code-dots{display:flex;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%}
+.dot.r{background:#f25d5d}.dot.y{background:#f5c242}.dot.g{background:#5bbf8e}
+.code-lang{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.code-copy{font-size:11px;color:var(--muted);cursor:pointer;background:none;border:0.5px solid var(--border2);border-radius:6px;padding:4px 10px;font-family:var(--sans);transition:all .2s}
+.code-copy:hover{color:var(--text);border-color:var(--border2)}
+pre{padding:20px 22px;font-family:var(--mono);font-size:12.5px;line-height:2;overflow-x:auto;color:var(--text)}
+pre::-webkit-scrollbar{height:4px}
+pre::-webkit-scrollbar-track{background:transparent}
+pre::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+.py-kw{color:#bf9aff}
+.py-fn{color:#79d4f0}
+.py-str{color:#a8d4a0}
+.py-cm{color:#4a5270;font-style:italic}
+.py-num{color:var(--warm)}
+.py-cls{color:#f4c56e;font-weight:500}
+.py-dec{color:#f29dcc}
+
+/* ─── FOOTER ─── */
+footer{border-top:0.5px solid var(--border);margin-top:60px;padding:24px 0;text-align:center;font-size:12px;color:var(--muted)}
+footer span{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="hero-glow"></div>
+<div class="shell">
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">D&amp;C <span>MinMax</span></div>
+  <div class="nav-pills">
+    <button class="nav-pill active" onclick="showSection('intro',this)">Intro</button>
+    <button class="nav-pill" onclick="showSection('approach',this)">Approach</button>
+    <button class="nav-pill" onclick="showSection('visualizer',this)">Visualizer</button>
+    <button class="nav-pill" onclick="showSection('theory',this)">Theory</button>
+    <button class="nav-pill" onclick="showSection('compare',this)">Compare</button>
+    <button class="nav-pill" onclick="showSection('python',this)">Python</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Mini Project — Algorithm Design</div>
+  <h1>Divide &amp; Conquer<br/><em>Min/Max Finder</em></h1>
+  <p class="hero-sub">An interactive deep-dive into finding the largest and smallest elements in an array using the divide and conquer strategy — with live visualization, theory, and full Python code.</p>
+  <div class="badge-row">
+    <div class="badge badge-purple">O(n) Time Complexity</div>
+    <div class="badge badge-teal">3n/2 − 2 Comparisons</div>
+    <div class="badge badge-warm">25% Fewer Ops vs Brute Force</div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SECTION: INTRO ══════════════════════ -->
+<div id="sec-intro" class="section active">
+  <div class="sec-header">
+    <div class="sec-num">01</div>
+    <div><div class="sec-title">Introduction</div><div class="sec-desc">Why this problem matters and what we're solving</div></div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="theory-block">
+        <h3>The Problem</h3>
+        <p>Imagine you have a list of numbers — say, exam scores, temperatures, or stock prices — and you need to find <strong>both</strong> the largest and smallest value at once. Simple enough, right?</p>
+        <p>The naive approach (brute force) scans the array twice or does two comparisons per element. But what if we could do it smarter — touching each element only about once?</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="theory-block">
+        <h3>Why Efficiency Matters</h3>
+        <p>For small arrays it doesn't matter. But in real systems — processing millions of sensor readings, sorting leaderboards, or computing statistics — every saved comparison adds up.</p>
+        <p>Divide and conquer gives us <strong>3n/2 − 2</strong> comparisons versus brute force's <strong>2(n−1)</strong>. For n = 1,000,000 that's ~500,000 fewer operations.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-family:var(--display);font-size:17px;font-weight:700;margin-bottom:16px">Real-world applications</h3>
+    <div class="card-grid3">
+      <div class="stat-tile">
+        <div class="stat-label">Data Analytics</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6">Finding price ranges, temperature extremes, and statistical bounds in large datasets.</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Computer Graphics</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6">Computing bounding boxes for collision detection and rendering pipelines.</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Embedded Systems</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6">Scanning sensor arrays in hardware with limited CPU cycles where each comparison costs power.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SECTION: APPROACH ══════════════════════ -->
+<div id="sec-approach" class="section">
+  <div class="sec-header">
+    <div class="sec-num">02</div>
+    <div><div class="sec-title">Divide &amp; Conquer Approach</div><div class="sec-desc">Step-by-step breakdown of the algorithm idea</div></div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>The Core Insight</h3>
+      <p>Instead of comparing every element against the current min AND max (2 comparisons per element), we first <strong>pair elements up</strong> and compare them against each other (1 comparison). Then we only need to compare the smaller of each pair against the running min, and the larger against the running max.</p>
+      <p>This gives us <strong>3 comparisons for every 2 elements</strong> = 3/2 per element = 3n/2 − 2 total.</p>
+    </div>
+  </div>
+
+  <div class="step-grid" style="margin-bottom:16px">
+    <div class="step-row">
+      <div class="step-dot">1</div>
+      <div class="step-content">
+        <div class="step-title">Divide — split the array in half</div>
+        <div class="step-body">Given array <code>[3,1,7,2,8,4,6,5]</code>, find the midpoint and split into left <code>[3,1,7,2]</code> and right <code>[8,4,6,5]</code>.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-dot">2</div>
+      <div class="step-content">
+        <div class="step-title">Base case — pairs of 2 elements</div>
+        <div class="step-body">When a sub-array has just 2 elements, compare them directly: 1 comparison gives both the min and max of that pair. No further recursion needed.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-dot">3</div>
+      <div class="step-content">
+        <div class="step-title">Conquer — recurse on each half</div>
+        <div class="step-body">Each half returns a <code>(min, max)</code> pair. Left returns <code>(1, 7)</code>, right returns <code>(4, 8)</code>. We now have 4 values to merge.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-dot">4</div>
+      <div class="step-content">
+        <div class="step-title">Combine — 2 comparisons to merge</div>
+        <div class="step-body">Compare the two mins: <code>min(1, 4) = 1</code>. Compare the two maxes: <code>max(7, 8) = 8</code>. Just 2 comparisons at each merge step — that's the efficiency win.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-dot">5</div>
+      <div class="step-content">
+        <div class="step-title">Result — propagate up the tree</div>
+        <div class="step-body">The final answer bubbles up from the root: <code>min = 1, max = 8</code>. Total: <strong>10 comparisons</strong> vs brute force's 14. That's 28% fewer operations.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SECTION: VISUALIZER ══════════════════════ -->
+<div id="sec-visualizer" class="section">
+  <div class="sec-header">
+    <div class="sec-num">03</div>
+    <div><div class="sec-title">Live Visualizer</div><div class="sec-desc">Watch the algorithm execute step by step on your input</div></div>
+  </div>
+
+  <div class="input-row">
+    <input class="arr-input" id="arr-input" value="3,1,7,2,8,4,6,5" placeholder="e.g. 3,1,7,2,8,4,6,5" oninput="onArrChange()"/>
+    <button class="btn btn-outline" onclick="randomArr()">Random</button>
+    <button class="btn btn-outline" onclick="clearArr()">Clear</button>
+  </div>
+  <div class="input-tip" id="arr-tip">8 elements ready.</div>
+
+  <div class="card-grid3">
+    <div class="stat-tile"><div class="stat-label">Minimum</div><div class="stat-val green" id="s-min">—</div><div class="stat-sub" id="s-min-sub">not yet found</div></div>
+    <div class="stat-tile"><div class="stat-label">Maximum</div><div class="stat-val orange" id="s-max">—</div><div class="stat-sub" id="s-max-sub">not yet found</div></div>
+    <div class="stat-tile"><div class="stat-label">Comparisons</div><div class="stat-val purple" id="s-cmp">—</div><div class="stat-sub" id="s-cmp-sub">formula: 3n/2−2</div></div>
+  </div>
+
+  <div class="array-wrap" id="array-wrap"></div>
+
+  <div class="controls">
+    <button class="btn btn-accent" id="btn-run" onclick="startVis()">Run Algorithm</button>
+    <button class="btn btn-outline" id="btn-step" onclick="stepVis()" disabled>Step</button>
+    <button class="btn btn-outline" onclick="resetVis()">Reset</button>
+    <div class="speed-ctl">
+      <label style="font-size:13px">Speed</label>
+      <input type="range" min="1" max="5" value="3" step="1" id="speed" oninput="setSpeed(this.value)"/>
+      <span id="speed-lbl">Normal</span>
+    </div>
+  </div>
+
+  <div class="log-box" id="log-box"><span class="log-empty">Run the algorithm to see the step-by-step execution log here…</span></div>
+</div>
+
+<!-- ══════════════════════ SECTION: THEORY ══════════════════════ -->
+<div id="sec-theory" class="section">
+  <div class="sec-header">
+    <div class="sec-num">04</div>
+    <div><div class="sec-title">Theory &amp; Pseudocode</div><div class="sec-desc">Recurrence relation, complexity analysis, and clean pseudocode</div></div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Pseudocode</h3>
+      <p>Clean, readable pseudocode using meaningful variable names. The algorithm handles three cases: single element, pair of elements, and the general recursive case.</p>
+    </div>
+    <div class="pseudo-box">
+<span class="kw">function</span> <span class="fn">FindMinMax</span>(arr, low, high):<br>
+<br>
+<span class="pl1 cm">// BASE CASE 1 — only one element</span><br>
+<span class="pl1 kw">if</span> low == high:<br>
+<span class="pl2 kw">return</span> <span class="ret">(arr[low], arr[low])</span>  <span class="cm">// min = max = that element</span><br>
+<br>
+<span class="pl1 cm">// BASE CASE 2 — exactly two elements (1 comparison)</span><br>
+<span class="pl1 kw">if</span> high == low + <span class="val">1</span>:<br>
+<span class="pl2 kw">if</span> arr[low] &lt; arr[high]:<br>
+<span class="pl3 kw">return</span> <span class="ret">(arr[low], arr[high])</span><br>
+<span class="pl2 kw">else</span>:<br>
+<span class="pl3 kw">return</span> <span class="ret">(arr[high], arr[low])</span><br>
+<br>
+<span class="pl1 cm">// RECURSIVE CASE — divide and conquer</span><br>
+<span class="pl1">mid = (low + high) / <span class="val">2</span></span><br>
+<br>
+<span class="pl1">(leftMin, leftMax)  = <span class="fn">FindMinMax</span>(arr, low, mid)</span><br>
+<span class="pl1">(rightMin, rightMax) = <span class="fn">FindMinMax</span>(arr, mid+<span class="val">1</span>, high)</span><br>
+<br>
+<span class="pl1 cm">// COMBINE — exactly 2 comparisons at every merge step</span><br>
+<span class="pl1">overallMin = <span class="fn">min</span>(leftMin, rightMin)  <span class="cm">// 1 comparison</span></span><br>
+<span class="pl1">overallMax = <span class="fn">max</span>(leftMax, rightMax)  <span class="cm">// 1 comparison</span></span><br>
+<br>
+<span class="pl1 kw">return</span> <span class="ret">(overallMin, overallMax)</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Recurrence Relation</h3>
+      <p>Let <strong>T(n)</strong> = total number of comparisons made on an array of n elements. We assume n = 2ᵏ for clean solving.</p>
+    </div>
+    <div class="formula-box">
+<span class="comment">// Base case — 2 elements, 1 comparison</span><br>
+T(2) = 1<br>
+<br>
+<span class="comment">// Recursive case — split into two halves, merge costs 2</span><br>
+T(n) = 2·T(n/2) + 2<br>
+<br>
+<span class="comment">// ─── Solving by substitution (n = 2ᵏ) ───────────────</span><br>
+T(n)   = 2·T(n/2) + 2<br>
+       = 2·[2·T(n/4) + 2] + 2     <span class="comment">// = 4·T(n/4) + 4 + 2</span><br>
+       = 4·[2·T(n/8) + 2] + 4+2   <span class="comment">// = 8·T(n/8) + 8 + 4 + 2</span><br>
+       ⋮<br>
+       = 2ᵏ·T(2) + 2·(2ᵏ⁻¹ + 2ᵏ⁻² + … + 1)<br>
+       = 2ᵏ·1 + 2·(2ᵏ − 1)        <span class="comment">// geometric sum</span><br>
+       = 2ᵏ + 2·2ᵏ − 2<br>
+       = 3·2ᵏ − 2<br>
+       = 3·(n/2) − 2<br>
+<br>
+<span class="highlight">T(n) = 3n/2 − 2</span>               <span class="comment">// Final answer</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Time Complexity Analysis</h3>
+      <p>From the solved recurrence we get <strong>T(n) = 3n/2 − 2</strong>, which is <strong>O(n)</strong> — linear time.</p>
+      <p>This is <em>optimal</em>. You cannot find both min and max without examining every element at least once, so Ω(n) is a lower bound. Divide and conquer achieves this bound with the best possible constant factor among comparison-based algorithms.</p>
+    </div>
+
+    <div id="theory-n-wrap">
+      <div class="slider-row">
+        <label>n =</label>
+        <input type="range" min="2" max="512" value="8" step="2" id="theory-n" oninput="updateTheory(this.value)"/>
+        <span class="val" id="theory-n-lbl">8</span>
+      </div>
+      <div class="card-grid3">
+        <div class="stat-tile"><div class="stat-label">D&amp;C (3n/2−2)</div><div class="stat-val green" id="th-dc">10</div><div class="stat-sub">comparisons</div></div>
+        <div class="stat-tile"><div class="stat-label">Brute force (2n−2)</div><div class="stat-val orange" id="th-bf">14</div><div class="stat-sub">comparisons</div></div>
+        <div class="stat-tile"><div class="stat-label">Savings</div><div class="stat-val purple" id="th-save">4</div><div class="stat-sub" id="th-pct">28.6% fewer</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Worked Example — n = 8</h3>
+      <p>Let's trace through <strong>[3, 1, 7, 2, 8, 4, 6, 5]</strong> step by step to verify the formula.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Step</th><th>Sub-array</th><th>Action</th><th>Comparisons</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>[3,1]</td><td>Base pair — compare</td><td class="orange">1</td><td>min=1, max=3</td></tr>
+          <tr><td>2</td><td>[7,2]</td><td>Base pair — compare</td><td class="orange">1</td><td>min=2, max=7</td></tr>
+          <tr><td>3</td><td>[8,4]</td><td>Base pair — compare</td><td class="orange">1</td><td>min=4, max=8</td></tr>
+          <tr><td>4</td><td>[6,5]</td><td>Base pair — compare</td><td class="orange">1</td><td>min=5, max=6</td></tr>
+          <tr><td>5</td><td>[3,1,7,2]</td><td>Merge left halves</td><td class="green">2</td><td>min=1, max=7</td></tr>
+          <tr><td>6</td><td>[8,4,6,5]</td><td>Merge right halves</td><td class="green">2</td><td>min=4, max=8</td></tr>
+          <tr><td>7</td><td>Full array</td><td>Final merge</td><td class="green">2</td><td>min=1, max=8</td></tr>
+          <tr style="background:rgba(124,111,247,.05)"><td></td><td></td><td><strong>Total</strong></td><td style="color:var(--accent);font-family:var(--mono);font-weight:500">10</td><td>3(8)/2−2 = <strong>10</strong> ✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SECTION: COMPARE ══════════════════════ -->
+<div id="sec-compare" class="section">
+  <div class="sec-header">
+    <div class="sec-num">05</div>
+    <div><div class="sec-title">Algorithm Comparison</div><div class="sec-desc">Divide &amp; conquer vs brute force — head to head</div></div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="theory-block">
+        <h3>Brute Force Method</h3>
+        <p>The simplest approach: scan through the array linearly, keeping track of the current minimum and maximum.</p>
+        <div class="formula-box" style="font-size:12px">
+minVal = arr[0]<br>
+maxVal = arr[0]<br>
+<span class="kw">for</span> i = 1 <span class="kw">to</span> n-1:<br>
+<span style="padding-left:16px"><span class="kw">if</span> arr[i] &lt; minVal: <span style="color:var(--danger)">// compare 1</span></span><br>
+<span style="padding-left:32px">minVal = arr[i]</span><br>
+<span style="padding-left:16px"><span class="kw">if</span> arr[i] &gt; maxVal: <span style="color:var(--danger)">// compare 2</span></span><br>
+<span style="padding-left:32px">maxVal = arr[i]</span><br>
+<span style="color:var(--danger)">Total: 2(n−1) comparisons</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="theory-block">
+        <h3>D&amp;C Method</h3>
+        <p>Pair up elements first (1 comparison each), then merge the pairs' results up the recursion tree (2 per merge). Reduces the constant factor by 25%.</p>
+        <div class="formula-box" style="font-size:12px">
+<span style="color:var(--muted)">Pair comparisons:</span> n/2 × 1 = n/2<br>
+<span style="color:var(--muted)">Merge comparisons:</span> n/2 − 1 merge steps<br>
+<span style="color:var(--muted)">Each merge costs:</span> 2 comparisons<br>
+<span style="color:var(--muted)">Total merges × 2:</span> 2(n/2 − 1) = n − 2<br>
+<br>
+<span class="result">Total = n/2 + n − 2 = 3n/2 − 2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Interactive Comparison</h3>
+      <p>Drag the slider to see how comparison counts scale with array size.</p>
+    </div>
+    <div class="input-row" style="margin-bottom:8px">
+      <input class="arr-input" id="cmp-input" value="3,1,7,2,8,4,6,5" placeholder="Enter your array" oninput="updateCmpFromInput()"/>
+      <button class="btn btn-outline" onclick="randomCmp()">Random</button>
+    </div>
+    <div class="slider-row">
+      <label style="font-size:13px;color:var(--muted)">or n =</label>
+      <input type="range" min="2" max="256" value="8" step="2" id="cmp-n" oninput="updateCmpFromN(this.value)"/>
+      <span class="val" id="cmp-n-lbl">8</span>
+    </div>
+    <div class="cmp-card" style="margin-top:12px">
+      <div class="cmp-label"><span class="cmp-name" style="color:var(--danger)">Brute force — 2(n−1)</span><span class="cmp-num" style="color:var(--danger)" id="bf-num">14</span></div>
+      <div class="bar-track"><div class="bar-fill bar-red" id="bf-bar" style="width:100%"></div></div>
+    </div>
+    <div class="cmp-card">
+      <div class="cmp-label"><span class="cmp-name" style="color:var(--success)">Divide &amp; conquer — 3n/2−2</span><span class="cmp-num" style="color:var(--success)" id="dc-num">10</span></div>
+      <div class="bar-track"><div class="bar-fill bar-green" id="dc-bar" style="width:71%"></div></div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+      <div class="saving-pill" id="save-pill">Saving: 4 comparisons (28.6% fewer)</div>
+    </div>
+    <div class="chart-wrap" style="margin-top:20px">
+      <div class="chart-label">Comparison count vs array size n (brute = red, D&amp;C = green)</div>
+      <canvas id="cmp-chart" height="160"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="theory-block"><h3>Summary Table</h3></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>Brute Force</th><th>Divide &amp; Conquer</th></tr></thead>
+        <tbody>
+          <tr><td>Comparisons</td><td class="orange">2(n−1)</td><td class="green">3n/2 − 2</td></tr>
+          <tr><td>Time complexity</td><td>O(n)</td><td>O(n)</td></tr>
+          <tr><td>Space complexity</td><td>O(1)</td><td>O(log n) — recursion stack</td></tr>
+          <tr><td>Implementation</td><td>Simple loop</td><td>Recursive function</td></tr>
+          <tr><td>For n=8</td><td class="orange">14 comparisons</td><td class="green">10 comparisons</td></tr>
+          <tr><td>For n=1,000,000</td><td class="orange">1,999,998</td><td class="green">1,499,998 (500K fewer)</td></tr>
+          <tr><td>Parallel-friendly</td><td>No</td><td>Yes — halves are independent</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SECTION: PYTHON ══════════════════════ -->
+<div id="sec-python" class="section">
+  <div class="sec-header">
+    <div class="sec-num">06</div>
+    <div><div class="sec-title">Python Implementation</div><div class="sec-desc">Complete, well-commented code you can run directly</div></div>
+  </div>
+
+  <div class="python-code-wrap">
+    <div class="code-header">
+      <div class="code-dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="code-lang">divide_and_conquer_minmax.py</div>
+      <button class="code-copy" onclick="copyCode()">Copy</button>
+    </div>
+    <pre id="py-code"><span class="py-cm">"""
+=============================================================
+  Divide and Conquer — Finding Min and Max
+  Mini Project | Algorithm Design
+=============================================================
+  Algorithm: Divide array recursively into halves.
+  Base cases handle single element and pairs.
+  Merge step uses only 2 comparisons per level.
+
+  Time Complexity : O(n)
+  Comparisons     : 3n/2 - 2  (vs 2(n-1) brute force)
+=============================================================
+"""</span>
+
+<span class="py-kw">import</span> math
+<span class="py-kw">import</span> time
+<span class="py-kw">import</span> random
+
+
+<span class="py-cm"># ─── Global comparison counter ─────────────────────────────</span>
+comparison_count = <span class="py-num">0</span>
+
+
+<span class="py-kw">def</span> <span class="py-fn">find_min_max_dc</span>(arr: list, low: int, high: int) -> tuple:
+    <span class="py-str">"""
+    Divide and Conquer approach to find minimum and maximum.
+
+    Args:
+        arr  : Input list of numbers
+        low  : Left boundary index (inclusive)
+        high : Right boundary index (inclusive)
+
+    Returns:
+        Tuple of (minimum, maximum) in arr[low..high]
+    """</span>
+    <span class="py-kw">global</span> comparison_count
+
+    <span class="py-cm"># ── BASE CASE 1: Single element ──────────────────────────</span>
+    <span class="py-kw">if</span> low == high:
+        <span class="py-kw">return</span> arr[low], arr[low]
+
+    <span class="py-cm"># ── BASE CASE 2: Two elements (1 comparison) ────────────</span>
+    <span class="py-kw">if</span> high == low + <span class="py-num">1</span>:
+        comparison_count += <span class="py-num">1</span>
+        <span class="py-kw">if</span> arr[low] < arr[high]:
+            <span class="py-kw">return</span> arr[low], arr[high]
+        <span class="py-kw">else</span>:
+            <span class="py-kw">return</span> arr[high], arr[low]
+
+    <span class="py-cm"># ── RECURSIVE CASE: Divide into two halves ───────────────</span>
+    mid = (low + high) // <span class="py-num">2</span>
+
+    left_min, left_max   = find_min_max_dc(arr, low, mid)
+    right_min, right_max = find_min_max_dc(arr, mid + <span class="py-num">1</span>, high)
+
+    <span class="py-cm"># ── COMBINE: 2 comparisons to merge results ─────────────</span>
+    comparison_count += <span class="py-num">1</span>
+    overall_min = left_min <span class="py-kw">if</span> left_min < right_min <span class="py-kw">else</span> right_min
+
+    comparison_count += <span class="py-num">1</span>
+    overall_max = left_max <span class="py-kw">if</span> left_max > right_max <span class="py-kw">else</span> right_max
+
+    <span class="py-kw">return</span> overall_min, overall_max
+
+
+<span class="py-kw">def</span> <span class="py-fn">find_min_max_brute</span>(arr: list) -> tuple:
+    <span class="py-str">"""
+    Brute Force approach to find minimum and maximum.
+    Makes 2(n-1) comparisons in the worst case.
+    """</span>
+    bf_comparisons = <span class="py-num">0</span>
+    min_val = arr[<span class="py-num">0</span>]
+    max_val = arr[<span class="py-num">0</span>]
+
+    <span class="py-kw">for</span> i <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">1</span>, <span class="py-fn">len</span>(arr)):
+        bf_comparisons += <span class="py-num">1</span>
+        <span class="py-kw">if</span> arr[i] < min_val:
+            min_val = arr[i]
+
+        bf_comparisons += <span class="py-num">1</span>
+        <span class="py-kw">if</span> arr[i] > max_val:
+            max_val = arr[i]
+
+    <span class="py-kw">return</span> min_val, max_val, bf_comparisons
+
+
+<span class="py-kw">def</span> <span class="py-fn">run_divide_and_conquer</span>(arr: list) -> dict:
+    <span class="py-str">"""
+    Wrapper: resets counter, runs D&C, returns full report.
+    """</span>
+    <span class="py-kw">global</span> comparison_count
+    comparison_count = <span class="py-num">0</span>
+
+    n = <span class="py-fn">len</span>(arr)
+    start = time.perf_counter()
+    minimum, maximum = find_min_max_dc(arr, <span class="py-num">0</span>, n - <span class="py-num">1</span>)
+    elapsed = time.perf_counter() - start
+
+    expected = <span class="py-fn">int</span>(math.ceil(<span class="py-num">3</span> * n / <span class="py-num">2</span>) - <span class="py-num">2</span>)
+
+    <span class="py-kw">return</span> {
+        <span class="py-str">"minimum"</span>    : minimum,
+        <span class="py-str">"maximum"</span>    : maximum,
+        <span class="py-str">"comparisons"</span>: comparison_count,
+        <span class="py-str">"expected"</span>   : expected,
+        <span class="py-str">"time_us"</span>    : elapsed * <span class="py-num">1e6</span>,
+    }
+
+
+<span class="py-kw">def</span> <span class="py-fn">print_report</span>(arr: list) -> <span class="py-fn">None</span>:
+    <span class="py-str">"""
+    Prints a formatted comparison report for one array.
+    """</span>
+    n = <span class="py-fn">len</span>(arr)
+    dc = run_divide_and_conquer(arr)
+    bf_min, bf_max, bf_cmp = find_min_max_brute(arr)
+    savings = bf_cmp - dc[<span class="py-str">"comparisons"</span>]
+    pct     = savings / bf_cmp * <span class="py-num">100</span>
+
+    <span class="py-fn">print</span>(<span class="py-str">f"\n{'═'*54}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  Array  : {arr}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  Size   : n = {n}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"{'─'*54}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  Min    : {dc['minimum']}    Max : {dc['maximum']}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"{'─'*54}"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  D&C comparisons   : {dc['comparisons']:>4}  (formula: {dc['expected']})"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  Brute comparisons : {bf_cmp:>4}  (formula: {2*(n-1)})"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"  Savings           : {savings:>4}  ({pct:.1f}% fewer)"</span>)
+    <span class="py-fn">print</span>(<span class="py-str">f"{'═'*54}"</span>)
+
+
+<span class="py-cm"># ─── Main ──────────────────────────────────────────────────</span>
+<span class="py-kw">if</span> __name__ == <span class="py-str">"__main__"</span>:
+
+    <span class="py-cm"># Example 1 — the textbook 8-element array</span>
+    print_report([<span class="py-num">3</span>, <span class="py-num">1</span>, <span class="py-num">7</span>, <span class="py-num">2</span>, <span class="py-num">8</span>, <span class="py-num">4</span>, <span class="py-num">6</span>, <span class="py-num">5</span>])
+
+    <span class="py-cm"># Example 2 — larger random array</span>
+    large = [random.randint(<span class="py-num">1</span>, <span class="py-num">1000</span>) <span class="py-kw">for</span> _ <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">16</span>)]
+    print_report(large)
+
+    <span class="py-cm"># Example 3 — edge cases</span>
+    print_report([<span class="py-num">42</span>])           <span class="py-cm"># single element</span>
+    print_report([<span class="py-num">5</span>, <span class="py-num">3</span>])          <span class="py-cm"># two elements</span>
+    print_report([<span class="py-num">7</span>, <span class="py-num">7</span>, <span class="py-num">7</span>, <span class="py-num">7</span>])  <span class="py-cm"># all same</span></pre>
+  </div>
+
+  <div class="card">
+    <div class="theory-block">
+      <h3>Conclusion</h3>
+      <p>Divide and conquer is a powerful paradigm that reduces the number of comparisons needed to find both min and max simultaneously. Key takeaways:</p>
+    </div>
+    <div class="conclusion-grid">
+      <div class="concl-card">
+        <div class="concl-icon" style="background:rgba(124,111,247,.15)">⚡</div>
+        <h4>Fewer comparisons</h4>
+        <p>3n/2 − 2 vs 2(n−1) — consistently 25% more efficient than brute force, for any n.</p>
+      </div>
+      <div class="concl-card">
+        <div class="concl-icon" style="background:rgba(91,191,142,.15)">↕</div>
+        <h4>Optimal algorithm</h4>
+        <p>The lower bound for this problem is ⌊3n/2⌋ − 2. D&amp;C achieves it. You cannot do better.</p>
+      </div>
+      <div class="concl-card">
+        <div class="concl-icon" style="background:rgba(245,158,74,.15)">⬡</div>
+        <h4>Parallelizable</h4>
+        <p>Each half is independent — the two recursive calls can run on separate CPU cores, potentially halving runtime on modern hardware.</p>
+      </div>
+      <div class="concl-card">
+        <div class="concl-icon" style="background:rgba(78,205,196,.15)">∿</div>
+        <h4>The D&amp;C pattern</h4>
+        <p>This problem is a gateway to merge sort, quick sort, and binary search — all built on the same divide-recurse-combine template.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<footer>
+  <div class="shell" style="padding-bottom:0">
+    Divide &amp; Conquer Min/Max Finder &nbsp;·&nbsp; <span>T(n) = 3n/2 − 2</span> &nbsp;·&nbsp; Algorithm Design Mini Project
+  </div>
+</footer>
+
+<script>
+/* ─── NAV ─── */
+function showSection(id,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-pill').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='compare'){updateCmpChart(parseInt(document.getElementById('cmp-n').value));}
+}
+
+/* ─── VISUALIZER ─── */
+const SPEEDS={1:1400,2:900,3:450,4:180,5:60};
+let vis_arr=[],vis_steps=[],vis_idx=0,vis_timer=null,vis_running=false,vis_speed=450;
+
+function onArrChange(){
+  const a=parseInput('arr-input');
+  const tip=document.getElementById('arr-tip');
+  if(a.length<2){tip.textContent='Need at least 2 numbers.';tip.style.color='#f26e6e';}
+  else if(a.length>20){tip.textContent=a.length+' elements (max recommended: 20 for best display).';tip.style.color='#f59e4a';}
+  else{tip.textContent=a.length+' elements ready.';tip.style.color='var(--muted)';}
+  resetVis(false);
+}
+
+function parseInput(id){
+  return document.getElementById(id).value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+}
+
+function renderArr(arr,hi={}){
+  const w=document.getElementById('array-wrap');
+  w.innerHTML='';
+  arr.forEach((v,i)=>{
+    const c=document.createElement('div');
+    let cls='cell';
+    if(hi.min_i===i)cls+=' min-cell';
+    else if(hi.max_i===i)cls+=' max-cell';
+    else if(hi.active&&hi.active.includes(i))cls+=' active-cell';
+    else if(hi.pair&&hi.pair.includes(i))cls+=' pair-cell';
+    c.className=cls;
+    c.innerHTML=v+'<span class="idx">['+i+']</span>';
+    w.appendChild(c);
+  });
+}
+
+function addLog(msg,type=''){
+  const box=document.getElementById('log-box');
+  const empty=box.querySelector('.log-empty');
+  if(empty)empty.remove();
+  const d=document.createElement('div');
+  d.className='log-line'+(type?' '+type:'');
+  d.textContent=msg;
+  box.appendChild(d);
+  box.scrollTop=box.scrollHeight;
+}
+
+function buildSteps(a,low,high,steps,depth){
+  const pad='  '.repeat(depth);
+  if(low===high){
+    steps.push({type:'single',low,high,depth,msg:`${pad}[idx ${low}] = ${a[low]} → single element, min=max=${a[low]}`});
+    return{min:a[low],max:a[low]};
+  }
+  if(high===low+1){
+    const mn=Math.min(a[low],a[high]),mx=Math.max(a[low],a[high]);
+    steps.push({type:'pair',low,high,depth,msg:`${pad}Pair [${a[low]}, ${a[high]}] @ idx ${low},${high} → 1 comparison → min=${mn}, max=${mx}`});
+    return{min:mn,max:mx};
+  }
+  const mid=Math.floor((low+high)/2);
+  steps.push({type:'split',low,high,mid,depth,msg:`${pad}Split [${low}..${high}] → [${low}..${mid}] and [${mid+1}..${high}]`});
+  const L=buildSteps(a,low,mid,steps,depth+1);
+  const R=buildSteps(a,mid+1,high,steps,depth+1);
+  const mn=Math.min(L.min,R.min),mx=Math.max(L.max,R.max);
+  const isFinal=(low===0&&high===a.length-1);
+  steps.push({type:'merge',low,high,mid,isFinal,depth,finalMin:mn,finalMax:mx,
+    msg:`${pad}Merge [${low}..${high}]: min(${L.min},${R.min})=${mn}, max(${L.max},${R.max})=${mx} ← 2 comparisons`});
+  return{min:mn,max:mx};
+}
+
+function startVis(){
+  vis_arr=parseInput('arr-input');
+  if(vis_arr.length<2)return;
+  resetVis(false);
+  vis_steps=[];
+  buildSteps(vis_arr,0,vis_arr.length-1,vis_steps,0);
+  vis_idx=0;vis_running=true;
+  document.getElementById('btn-run').disabled=true;
+  document.getElementById('btn-step').disabled=false;
+  renderArr(vis_arr,{});
+  addLog('Starting D&C on ['+vis_arr.join(', ')+']','info');
+  tickVis();
+}
+
+function tickVis(){
+  if(!vis_running||vis_idx>=vis_steps.length){finishVis();return;}
+  const s=vis_steps[vis_idx++];
+  applyStep(s);
+  vis_timer=setTimeout(tickVis,vis_speed);
+}
+
+function stepVis(){
+  clearTimeout(vis_timer);
+  if(vis_idx>=vis_steps.length){finishVis();return;}
+  applyStep(vis_steps[vis_idx++]);
+}
+
+function applyStep(s){
+  const idxs=[];for(let i=s.low;i<=s.high;i++)idxs.push(i);
+  let hi={};
+  if(s.type==='pair')hi={pair:idxs};
+  else if(s.type==='merge'&&s.isFinal)hi={min_i:vis_arr.indexOf(s.finalMin),max_i:vis_arr.lastIndexOf(s.finalMax)};
+  else hi={active:idxs};
+  renderArr(vis_arr,hi);
+  addLog(s.msg,s.type==='merge'?'success':s.type==='pair'?'warn':'');
+}
+
+function finishVis(){
+  vis_running=false;clearTimeout(vis_timer);
+  document.getElementById('btn-run').disabled=false;
+  document.getElementById('btn-step').disabled=true;
+  const n=vis_arr.length,mn=Math.min(...vis_arr),mx=Math.max(...vis_arr);
+  const pairs=vis_steps.filter(s=>s.type==='pair').length;
+  const merges=vis_steps.filter(s=>s.type==='merge').length;
+  const total=pairs+merges*2;
+  const formula=Math.round(3*n/2-2);
+  renderArr(vis_arr,{min_i:vis_arr.indexOf(mn),max_i:vis_arr.lastIndexOf(mx)});
+  document.getElementById('s-min').textContent=mn;
+  document.getElementById('s-max').textContent=mx;
+  document.getElementById('s-cmp').textContent=total;
+  document.getElementById('s-min-sub').textContent='index '+vis_arr.indexOf(mn);
+  document.getElementById('s-max-sub').textContent='index '+vis_arr.lastIndexOf(mx);
+  document.getElementById('s-cmp-sub').textContent='formula gives '+formula+(total===formula?' ✓':' ?');
+  addLog('Done! min='+mn+' max='+mx+' comparisons='+total+' (3×'+n+'/2−2='+formula+')','success');
+}
+
+function resetVis(clearLog=true){
+  clearTimeout(vis_timer);vis_running=false;vis_idx=0;vis_steps=[];
+  document.getElementById('btn-run').disabled=false;
+  document.getElementById('btn-step').disabled=true;
+  document.getElementById('s-min').textContent='—';
+  document.getElementById('s-max').textContent='—';
+  document.getElementById('s-cmp').textContent='—';
+  document.getElementById('s-min-sub').textContent='not yet found';
+  document.getElementById('s-max-sub').textContent='not yet found';
+  document.getElementById('s-cmp-sub').textContent='formula: 3n/2−2';
+  const a=parseInput('arr-input');
+  if(a.length>=2)renderArr(a,{});
+  else document.getElementById('array-wrap').innerHTML='<span style="color:var(--faint);font-size:13px">Enter numbers above…</span>';
+  if(clearLog)document.getElementById('log-box').innerHTML='<span class="log-empty">Run the algorithm to see the step-by-step execution log here…</span>';
+}
+
+function randomArr(){
+  const n=Math.floor(Math.random()*8)+4;
+  document.getElementById('arr-input').value=Array.from({length:n},()=>Math.floor(Math.random()*99)+1).join(',');
+  onArrChange();
+}
+function clearArr(){document.getElementById('arr-input').value='';onArrChange();}
+function setSpeed(v){vis_speed=SPEEDS[v]||450;const l={1:'Slowest',2:'Slow',3:'Normal',4:'Fast',5:'Fastest'};document.getElementById('speed-lbl').textContent=l[v];}
+
+/* ─── THEORY SLIDER ─── */
+function updateTheory(v){
+  document.getElementById('theory-n-lbl').textContent=v;
+  const n=parseInt(v),dc=Math.round(3*n/2-2),bf=2*(n-1),save=bf-dc,pct=(save/bf*100).toFixed(1);
+  document.getElementById('th-dc').textContent=dc;
+  document.getElementById('th-bf').textContent=bf;
+  document.getElementById('th-save').textContent=save;
+  document.getElementById('th-pct').textContent=pct+'% fewer';
+}
+
+/* ─── COMPARE SECTION ─── */
+function updateCmpFromInput(){
+  const a=parseInput('cmp-input');
+  if(a.length<2)return;
+  const n=a.length;
+  document.getElementById('cmp-n').value=n;
+  updateCmpNums(n);
+  updateCmpChart(n);
+}
+function updateCmpFromN(v){
+  document.getElementById('cmp-n-lbl').textContent=v;
+  updateCmpNums(parseInt(v));
+  updateCmpChart(parseInt(v));
+}
+function updateCmpNums(n){
+  const bf=2*(n-1),dc=Math.round(3*n/2-2),save=bf-dc,pct=(save/bf*100).toFixed(1);
+  document.getElementById('bf-num').textContent=bf;
+  document.getElementById('dc-num').textContent=dc;
+  document.getElementById('bf-bar').style.width='100%';
+  document.getElementById('dc-bar').style.width=Math.round(dc/bf*100)+'%';
+  document.getElementById('save-pill').textContent='Saving: '+save+' comparisons ('+pct+'% fewer)';
+}
+function randomCmp(){
+  const n=Math.floor(Math.random()*14)+4;
+  document.getElementById('cmp-input').value=Array.from({length:n},()=>Math.floor(Math.random()*99)+1).join(',');
+  updateCmpFromInput();
+}
+
+function updateCmpChart(curN){
+  const canvas=document.getElementById('cmp-chart');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth||600,H=160;
+  canvas.width=W;canvas.height=H;
+  ctx.clearRect(0,0,W,H);
+  const maxN=Math.max(curN*2,32);
+  const steps=50;
+  const pad={l:38,r:14,t:12,b:28};
+  const iW=W-pad.l-pad.r,iH=H-pad.t-pad.b;
+  const maxV=2*(maxN-1);
+  const mx=c=>pad.l+(c-2)/(maxN-2)*iW;
+  const my=v=>pad.t+iH-(v/maxV)*iH;
+  const gc=getComputedStyle(document.body);
+  const borderC='rgba(255,255,255,0.07)';
+  const textC='rgba(255,255,255,0.3)';
+  ctx.strokeStyle=borderC;ctx.lineWidth=0.5;
+  [0,Math.round(maxV/2),maxV].forEach(v=>{
+    const y=my(v);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iW,y);ctx.stroke();
+    ctx.fillStyle=textC;ctx.font='10px monospace';ctx.textAlign='right';ctx.fillText(v,pad.l-4,y+3);
+  });
+  ctx.textAlign='center';
+  [2,Math.round(maxN/2),maxN].forEach(n=>{
+    ctx.fillStyle=textC;ctx.font='10px monospace';ctx.fillText(n,mx(n),pad.t+iH+14);
+  });
+  const drawLine=(fn,color)=>{
+    ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();
+    for(let i=0;i<=steps;i++){const n=2+i*(maxN-2)/steps;ctx.lineTo(mx(n),my(fn(n)));}
+    ctx.stroke();
+  };
+  drawLine(n=>2*(n-1),'rgba(242,110,110,0.9)');
+  drawLine(n=>Math.max(0,3*n/2-2),'rgba(91,191,142,0.9)');
+  ctx.strokeStyle='rgba(124,111,247,0.7)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(mx(curN),pad.t);ctx.lineTo(mx(curN),pad.t+iH);ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ─── COPY CODE ─── */
+function copyCode(){
+  const raw=document.getElementById('py-code').innerText;
+  navigator.clipboard.writeText(raw).then(()=>{
+    const btn=document.querySelector('.code-copy');
+    btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+
+/* ─── INIT ─── */
+onArrChange();
+renderArr([3,1,7,2,8,4,6,5],{});
+setTimeout(()=>{
+  updateCmpChart(8);
+  updateTheory(8);
+},120);
+</script>
+</body>
+</html>
